@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "ru.nametag.client.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "client": [
+    "ChatHudMixin",
+    "ScoreboardMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
