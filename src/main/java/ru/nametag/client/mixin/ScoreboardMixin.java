@@ -1,47 +1,36 @@
 package ru.nametag.client.mixin;
 
-import net.minecraft.client.gui.hud.InGameHud;
+import net.minecraft.scoreboard.AbstractTeam;
+import net.minecraft.scoreboard.Team;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import ru.nametag.client.NametagClient;
 
-@Mixin(InGameHud.class)
+@Mixin(Team.class)
 public class ScoreboardMixin {
     
-    // Перехватываем отрисовку текста (когда сервер использует форматированный Text)
-    @ModifyArg(
-        method = "renderScoreboardSidebar",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/Text;IIIZ)I"
-        ),
-        index = 1
+    // Перехватываем генерацию префиксов и суффиксов в самом ядре игры
+    // Это автоматически изменит ник в Скорборде (боковой панели), Табе и над головой!
+    @Inject(
+        method = "decorateName(Lnet/minecraft/scoreboard/AbstractTeam;Lnet/minecraft/text/Text;)Lnet/minecraft/text/MutableText;", 
+        at = @At("RETURN"), 
+        cancellable = true
     )
-    private Text modifyScoreboardText(Text text) {
-        return NametagClient.replaceName(text);
-    }
-
-    // Перехватываем отрисовку обычных строк (на случай, если HolyWorld шлет текст сырой строкой)
-    @ModifyArg(
-        method = "renderScoreboardSidebar",
-        at = @At(
-            value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Ljava/lang/String;IIIZ)I"
-        ),
-        index = 1
-    )
-    private String modifyScoreboardString(String string) {
-        if (NametagClient.fakeName != null && string != null) {
-            net.minecraft.client.MinecraftClient client = net.minecraft.client.MinecraftClient.getInstance();
-            if (client != null && client.getSession() != null) {
-                String realName = client.getSession().getUsername();
-                if (realName != null && !realName.isEmpty() && string.contains(realName)) {
-                    return string.replace(realName, NametagClient.fakeName);
-                }
+    private static void modifyScoreboardCore(AbstractTeam team, Text name, CallbackInfoReturnable<MutableText> cir) {
+        Text original = cir.getReturnValue();
+        if (original != null) {
+            // Прогоняем полностью собранную сервером строчку (со всеми префиксами и цветами) через наш фильтр
+            Text replaced = NametagClient.replaceName(original);
+            
+            if (replaced instanceof MutableText) {
+                cir.setReturnValue((MutableText) replaced);
+            } else {
+                cir.setReturnValue(replaced.copy());
             }
         }
-        return string;
     }
 }
