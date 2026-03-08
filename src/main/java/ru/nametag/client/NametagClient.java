@@ -5,6 +5,8 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.LiteralTextContent;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 
 public class NametagClient implements ClientModInitializer {
@@ -17,7 +19,7 @@ public class NametagClient implements ClientModInitializer {
                 .then(ClientCommandManager.argument("nick", StringArgumentType.word())
                     .executes(context -> {
                         fakeName = StringArgumentType.getString(context, "nick");
-                        context.getSource().sendFeedback(Text.literal("§a[Nametag] Ваш ник визуально изменен на: §e" + fakeName));
+                        context.getSource().sendFeedback(Text.literal("§a[Nametag] Ваш ник изменен на: §e" + fakeName));
                         return 1;
                     }))
                 .then(ClientCommandManager.literal("off")
@@ -30,6 +32,7 @@ public class NametagClient implements ClientModInitializer {
         });
     }
 
+    // Главный метод: запускает молекулярный разбор текста
     public static Text replaceName(Text original) {
         if (fakeName == null || original == null) return original;
         
@@ -39,15 +42,33 @@ public class NametagClient implements ClientModInitializer {
         String realName = client.getSession().getUsername();
         if (realName == null || realName.isEmpty()) return original;
 
-        try {
-            String json = Text.Serializer.toJson(original);
-            if (json.contains(realName)) {
-                String newJson = json.replace(realName, fakeName);
-                return Text.Serializer.fromJson(newJson);
+        return replaceRecursively(original, realName, fakeName);
+    }
+
+    // Рекурсивный фильтр: обходит защиту сервера и меняет текст, сохраняя стили
+    private static MutableText replaceRecursively(Text text, String target, String replacement) {
+        MutableText newText;
+        
+        // 1. Изменяем содержимое, если это обычный текст
+        if (text.getContent() instanceof LiteralTextContent) {
+            String str = ((LiteralTextContent) text.getContent()).string();
+            if (str.contains(target)) {
+                newText = Text.literal(str.replace(target, replacement));
+            } else {
+                newText = Text.literal(str);
             }
-        } catch (Exception e) {
-            // Игнорируем ошибки сериализации
+        } else {
+            newText = text.copyContentOnly();
         }
-        return original;
+
+        // 2. Копируем оригинальный цвет, жирность и шрифты
+        newText.setStyle(text.getStyle());
+
+        // 3. Перебираем все остальные кусочки текста (префиксы, звездочки)
+        for (Text sibling : text.getSiblings()) {
+            newText.append(replaceRecursively(sibling, target, replacement));
+        }
+
+        return newText;
     }
 }
