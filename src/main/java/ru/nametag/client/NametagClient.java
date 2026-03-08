@@ -10,10 +10,7 @@ import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 
 public class NametagClient implements ClientModInitializer {
-    // Переменные для ника
     public static String fakeName = null;
-    
-    // Переменные для титула
     public static String realTitle = null;
     public static String fakeTitle = null;
 
@@ -23,30 +20,30 @@ public class NametagClient implements ClientModInitializer {
             
             // --- Команда /nametag ---
             dispatcher.register(ClientCommandManager.literal("nametag")
-                .then(ClientCommandManager.argument("nick", StringArgumentType.string())
-                    .executes(context -> {
-                        fakeName = StringArgumentType.getString(context, "nick");
-                        context.getSource().sendFeedback(Text.literal("§a[Nametag] Ник изменен на: §e" + fakeName));
-                        return 1;
-                    }))
+                .executes(context -> {
+                    context.getSource().sendError(Text.literal("§cИспользование: /nametag <ник> или /nametag off"));
+                    return 1;
+                })
                 .then(ClientCommandManager.literal("off")
                     .executes(context -> {
                         fakeName = null;
                         context.getSource().sendFeedback(Text.literal("§c[Nametag] Подмена ника выключена."));
                         return 1;
                     }))
+                .then(ClientCommandManager.argument("nick", StringArgumentType.string())
+                    .executes(context -> {
+                        fakeName = StringArgumentType.getString(context, "nick");
+                        context.getSource().sendFeedback(Text.literal("§a[Nametag] Ник изменен на: §e" + fakeName));
+                        return 1;
+                    }))
             );
 
             // --- Команда /titultag ---
             dispatcher.register(ClientCommandManager.literal("titultag")
-                .then(ClientCommandManager.argument("old_title", StringArgumentType.string())
-                    .then(ClientCommandManager.argument("new_title", StringArgumentType.string())
-                        .executes(context -> {
-                            realTitle = StringArgumentType.getString(context, "old_title");
-                            fakeTitle = StringArgumentType.getString(context, "new_title");
-                            context.getSource().sendFeedback(Text.literal("§a[Nametag] Титул '§e" + realTitle + "§a' визуально заменен на '§e" + fakeTitle + "§a'"));
-                            return 1;
-                        })))
+                .executes(context -> {
+                    context.getSource().sendError(Text.literal("§cИспользование: /titultag <старый_титул> <новый_титул> или /titultag off"));
+                    return 1;
+                })
                 .then(ClientCommandManager.literal("off")
                     .executes(context -> {
                         realTitle = null;
@@ -54,15 +51,20 @@ public class NametagClient implements ClientModInitializer {
                         context.getSource().sendFeedback(Text.literal("§c[Nametag] Подмена титула выключена."));
                         return 1;
                     }))
+                .then(ClientCommandManager.argument("old", StringArgumentType.string())
+                    .then(ClientCommandManager.argument("new", StringArgumentType.string())
+                        .executes(context -> {
+                            realTitle = StringArgumentType.getString(context, "old");
+                            fakeTitle = StringArgumentType.getString(context, "new");
+                            context.getSource().sendFeedback(Text.literal("§a[Nametag] Титул '§e" + realTitle + "§a' визуально заменен на '§e" + fakeTitle + "§a'"));
+                            return 1;
+                        })))
             );
         });
     }
 
-    // Главный метод: передает текст в фильтр
     public static Text replaceName(Text original) {
         if (original == null) return null;
-        
-        // Если ничего не включено - сразу отдаем оригинал (чтобы не нагружать игру)
         if (fakeName == null && fakeTitle == null) return original;
         
         MinecraftClient client = MinecraftClient.getInstance();
@@ -74,7 +76,6 @@ public class NametagClient implements ClientModInitializer {
         return replaceRecursively(original, realName, fakeName, realTitle, fakeTitle);
     }
 
-    // Рекурсивный фильтр: теперь заменяет и ник, и титул за один проход!
     private static MutableText replaceRecursively(Text text, String tName, String rName, String tTitle, String rTitle) {
         MutableText newText;
         
@@ -103,10 +104,9 @@ public class NametagClient implements ClientModInitializer {
             newText = text.copyContentOnly();
         }
 
-        // Копируем цвета
+        // Копируем стили (цвета, жирность)
         newText.setStyle(text.getStyle());
 
-        // Проходимся по всем дочерним элементам
         for (Text sibling : text.getSiblings()) {
             newText.append(replaceRecursively(sibling, tName, rName, tTitle, rTitle));
         }
