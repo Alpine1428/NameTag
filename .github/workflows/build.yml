@@ -18,4 +18,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: NametagMod-1.20.1
-          path: build/libs/!(*-dev.jar|*-sources.jar)
+          path: |
+            build/libs/*.jar
+            !build/libs/*-dev.jar
+            !build/libs/*-sources.jar
